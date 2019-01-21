@@ -1,5 +1,5 @@
 ---
-title: "A POREquality report"
+title: "HGT NanoporeSeq Report"
 output: 
   flexdashboard::flex_dashboard:
     theme: bootstrap
@@ -60,10 +60,10 @@ parser <- add_option(parser,
                      help="Input path to a Nanopore sequencing summary file"
                      )
 parser <- add_option(parser,
-                     opt_str=c("-b", "--bream"),
+                     opt_str=c("-b", "--barcode"),
                      type="character",
-                     dest='bream.file',
-                     help="Input path to a Nanopore bream-log file"
+                     dest='barcoding.summary',
+                     help="Input path to a Nanopore barcoding-summary file"
                      )
 parser <- add_option(parser,
                      opt_str=c("-o", "--output"),
@@ -71,10 +71,15 @@ parser <- add_option(parser,
                      dest='output.dir',
                      help="Output directory for the PoreQuality report"
                      )
+#parser <- add_option(parser,
+#                     opt_str=c("-d", "--demultiplex"),
+#                     type="character",
+#                     dest='barcoding.summary',
+#                     help="Input path to the guppy_barcoder output")
 options=parse_args(parser)
 input.file=options$input.file
-#input.file="~/NLAAA149189_summary.txt" # <- useful if you want to specify a summary to run manually
-bream.file=options$bream.file
+barcoding.summary=options$barcoding.summary
+#bream.file=options$bream.file
 output.dir=options$output.dir
 ```
 
@@ -200,7 +205,7 @@ mean.q = round(mean(seq_dt$mean_qscore_template), digits = 1)
 median.q = round(median(seq_dt$mean_qscore_template), digits = 1)
 active.channels = length(unique(seq_dt$channel))
 #flowcell.quality = (active.channels / 512)*100
-run.length = (max(as.numeric(seq_dt$start_time))) %/% 3600
+run.length = (max(as.numeric(seq_dt$start_time))) %/% 60
 ```
 ### Total yield (gbp)
 
@@ -254,7 +259,7 @@ valueBox(paste0(sprintf("%.2f",prop.hq),"%"),
          color=ifelse(prop.hq < 70,"danger","primary"))
 ```
 
-### Runtime (hours)
+### Runtime (Mins)
 
 ```{r, include=TRUE}
 valueBox(round(run.length,2),
@@ -431,33 +436,6 @@ ggplot(seq_dt, aes(x=seq_dt$sequence_length_template,y=seq_dt$mean_qscore_templa
         axis.text.y = element_text(size=12))
 ```
 
-### Pore activity
-```{r death_rate}
-time_hours=c(0.003,0.011,0.66)
-for (i in seq(1,run.length,1)){time_hours[i+3]<-i} # append up to run length, after the intial early minutes
-death_df <- data.frame(time_hours)
-death_list = list()
-for (i in 1:length(time_hours)){
-    active_at_time = length(unique(subset(seq_dt$channel, seq_dt$start_time / 3600 > time_hours[i] & seq_dt$start_time / 3600 < time_hours[i+1])))
-    death_list[[i]] <- active_at_time
-}
-death_df$active_sensors <- do.call(rbind, death_list)
-```
-
-```{r death_rate_plot, include=TRUE}
-ggplot(data=death_df,aes(x=death_df$time_hours,y=death_df$active_sensors)) +
-    geom_point() +
-    geom_line(colour=hm.palette(9)[8]) +
-    geom_vline(xintercept = muxes, colour = 'black', linetype = 'dashed', alpha = 0.5) +
-    scale_x_continuous(expand=c(0,0),breaks = pretty(death_df$time_hours,n=10)) +
-    scale_y_continuous(expand=c(0,0),breaks = pretty(death_df$active_sensors,n=10)) +
-    coord_cartesian(ylim = c(0, 512)) +
-    theme_classic() +
-    theme(axis.title = element_text(size = 20),axis.text.x = element_text(size=12),
-        axis.text.y = element_text(size=12)) +
-        xlab("\nTime (hours)") +
-        ylab("Active channels\n")
-```
 
 ### Cumulative yield
 ```{r yield, include=TRUE}
@@ -481,9 +459,12 @@ ggplot(data=seq_dt,aes(x=seq_dt$start_time / 3600)) +
 
 ### Demultiplexing
 ```{r demultiplex_plot, include=TRUE}
-if ("barcode_arrangement" %in% names(seq_dt)) {
+#if ("barcode_arrangement" %in% names(seq_dt)) {
 # it's a run that used the --barcoding flag
-barcode=count(seq_dt$barcode_arrangement)
+barcodeTable=fread(barcoding.summary, header=TRUE, sep="\t")
+barcode=barcodeTable %>% group_by(barcode_arrangement) %>% dplyr::summarise(freq=n())
+colnames(barcode)[1]="x"
+#barcode=count(seq_dt$barcode_arrangement)
 #barcode=subset(barcode, freq > 150)
 #barcode=subset(barcode, freq < 500000)
 #low_bc=subset(barcode, freq < 1000)
@@ -496,5 +477,5 @@ ggplot(barcode, aes(x, freq, fill=x)) +
     theme_classic() + scale_y_log10(expand=c(0,0),minor_breaks=log10_minor_break()) +
     theme(axis.text.x = element_text(angle=90, element_text(size=12)),
     axis.text.y = element_text(size=12))
-}
+#}
 ```
