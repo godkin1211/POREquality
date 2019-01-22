@@ -71,15 +71,9 @@ parser <- add_option(parser,
                      dest='output.dir',
                      help="Output directory for the PoreQuality report"
                      )
-#parser <- add_option(parser,
-#                     opt_str=c("-d", "--demultiplex"),
-#                     type="character",
-#                     dest='barcoding.summary',
-#                     help="Input path to the guppy_barcoder output")
 options=parse_args(parser)
 input.file=options$input.file
 barcoding.summary=options$barcoding.summary
-#bream.file=options$bream.file
 output.dir=options$output.dir
 ```
 
